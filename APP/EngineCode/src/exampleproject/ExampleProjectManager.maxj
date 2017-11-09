@@ -1,0 +1,145 @@
+/*
+    Copyright 2016 Giulio Stramondo
+
+    This program is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
+package exampleproject;
+
+
+import com.maxeler.maxcompiler.v2.build.EngineParameters;
+import com.maxeler.maxcompiler.v2.managers.BuildConfig;
+import com.maxeler.maxcompiler.v2.managers.custom.CustomManager;
+import com.maxeler.maxcompiler.v2.managers.custom.DFELink;
+import com.maxeler.maxcompiler.v2.managers.custom.blocks.KernelBlock;
+import com.maxeler.maxcompiler.v2.managers.engine_interfaces.CPUTypes;
+import com.maxeler.maxcompiler.v2.managers.engine_interfaces.EngineInterface;
+import com.maxeler.maxcompiler.v2.managers.engine_interfaces.InterfaceParam;
+import com.maxeler.maxcompiler.v2.managers.standard.Manager;
+
+public class ExampleProjectManager extends CustomManager{
+
+	private static final String s_kernelName = "prf_v2_Kernel";
+    static int p = PRFConstants.p;
+    static int q = PRFConstants.q;
+
+    ExampleProjectManager(EngineParameters engineParameters){
+        super(engineParameters);
+        KernelBlock prf_v2_Input_Generator = addKernel(
+                new prf_v2_Input_Generator(makeKernelParameters("prf_v2_Input_Generator")));
+        KernelBlock PRFOutputGen = addKernel(
+                new PRFOutputGen(makeKernelParameters("PRFOutputGen")));
+        KernelBlock prf_v2_Kernel = addKernel(
+                new prf_v2Kernel(makeKernelParameters("prf_v2_Kernel")));
+
+        //CPU INPUTS
+        prf_v2_Input_Generator.getInput("input_vector")<==addStreamFromCPU("input_vector");
+
+        //Unpacking output from Input generator
+        DFELink index_i = prf_v2_Input_Generator.getOutput("index_i");
+        DFELink index_j = prf_v2_Input_Generator.getOutput("index_j");
+        DFELink acc_type = prf_v2_Input_Generator.getOutput("acc_type");
+        DFELink write_enable = prf_v2_Input_Generator.getOutput("write_enable");
+        
+        if(PRFConstants.INDEPENDENT_READ_WRITE){
+            int read_port_nb=PRFConstants.READ_PORT_NB;
+            for(int port =0; port<read_port_nb;port++){
+                DFELink index_i_read = prf_v2_Input_Generator.getOutput("index_i_read_"+port);
+                DFELink index_j_read = prf_v2_Input_Generator.getOutput("index_j_read_"+port);
+                DFELink acc_type_read = prf_v2_Input_Generator.getOutput("acc_type_read_"+port);
+                prf_v2_Kernel.getInput("index_i_read_"+port) <== index_i_read;
+                prf_v2_Kernel.getInput("index_j_read_"+port) <== index_j_read;
+                prf_v2_Kernel.getInput("acc_type_read_"+port) <== acc_type_read;
+            }
+        }
+
+
+        prf_v2_Kernel.getInput("index_i") <== index_i;
+        prf_v2_Kernel.getInput("index_j") <== index_j;
+        prf_v2_Kernel.getInput("acc_type") <== acc_type;
+        prf_v2_Kernel.getInput("write_enable") <== write_enable;
+        DFELink out;
+        for(int i =0; i < p;i++)
+                for(int j = 0; j< q;j++){
+                	prf_v2_Kernel.getInput("input_data_arr"+i+"_"+j) <==  prf_v2_Input_Generator.getOutput("input_data_arr"+i+"_"+j);
+                    if(!PRFConstants.INDEPENDENT_READ_WRITE){
+                        out = prf_v2_Kernel.getOutput("o_"+i+"_"+j);
+                        PRFOutputGen.getInput("o_"+i+"_"+j)<== out;
+                    }
+                }
+        if(PRFConstants.INDEPENDENT_READ_WRITE){
+            int read_port_nb=PRFConstants.READ_PORT_NB;
+            for(int port =0; port<read_port_nb;port++){
+                 for(int i =0; i < p;i++)
+                    for(int j = 0; j< q;j++){
+                        out = prf_v2_Kernel.getOutput("o_P"+port+"_"+i+"_"+j);
+                        PRFOutputGen.getInput("o_P"+port+"_"+i+"_"+j)<== out;
+               
+                    } 
+            }
+        }
+        out = PRFOutputGen.getOutput("output");
+        addStreamToCPU("output")<== out;
+    }
+
+	public static void main(String[] args) {
+		ExampleProjectEngineParameters params = new ExampleProjectEngineParameters(args);
+		ExampleProjectManager manager = new ExampleProjectManager(params);
+		manager.config.setDefaultStreamClockFrequency(PRFConstants.FREQUENCY);
+        manager.config.setAllowNonMultipleTransitions(true);
+        //manager.config.setMPPRCostTableSearchRange(1,4);
+        //manager.config.setMPPRParallelism(4);
+		manager.createSLiCinterface(interfaceDefault());
+
+
+		manager.build();
+	}
+
+	private static EngineInterface interfaceDefault() {
+		EngineInterface engine_interface = new EngineInterface();
+		CPUTypes   type = PRFConstants.cpu_type;
+		int        size = type.sizeInBytes();
+
+
+		InterfaceParam  N    = engine_interface.addParam("N", CPUTypes.INT);
+
+
+		engine_interface.setTicks("prf_v2_Input_Generator", N);
+		engine_interface.setTicks("prf_v2_Kernel", N);
+		engine_interface.setTicks("PRFOutputGen", N);
+
+        if(PRFConstants.INDEPENDENT_READ_WRITE){
+            //Padding to ensure that the lenght of the stream is a multiple of 16 bytes.
+
+            int read_port_nb = PRFConstants.READ_PORT_NB;
+            engine_interface.setStream("input_vector", type, N * (size*p*q+size*4 +size*4*read_port_nb));
+            engine_interface.setStream("output",type, N * (size*p*q*read_port_nb));
+        }else{
+            engine_interface.setStream("input_vector", type, N * (size*p*q+size*4));
+            engine_interface.setStream("output",type, N * (size*p*q));
+        }
+
+		return engine_interface;
+	}
+
+	private static void configBuild(Manager manager, ExampleProjectEngineParameters params) {
+		manager.setEnableStreamStatusBlocks(false);
+		BuildConfig buildConfig = manager.getBuildConfig();
+		buildConfig.setMPPRCostTableSearchRange(params.getMPPRStartCT(), params.getMPPREndCT());
+		buildConfig.setMPPRParallelism(params.getMPPRThreads());
+		buildConfig.setMPPRRetryNearMissesThreshold(params.getMPPRRetryThreshold());
+	}
+}
+
+

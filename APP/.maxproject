@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<maxCompilerManager version="2">
+<enginePart internalEngineSubproject="prfv3_EngineCode" isSrcBin="false" isUseDefaultSelected="false" outputLocation="/prfv3_EngineCode/bin" projectName="prfv3"/>
+<cpuPart internalCpuSubproject="prfv3_CPUCode"/>
+<watchedFiles/>
+</maxCompilerManager>

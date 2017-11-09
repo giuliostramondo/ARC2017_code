@@ -1,0 +1,73 @@
+/*
+    Copyright 2016 Giulio Stramondo
+
+    This program is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
+package exampleproject;
+
+import com.maxeler.maxcompiler.v2.kernelcompiler.Kernel;
+import com.maxeler.maxcompiler.v2.kernelcompiler.KernelParameters;
+import com.maxeler.maxcompiler.v2.kernelcompiler.types.base.DFEType;
+import com.maxeler.maxcompiler.v2.kernelcompiler.types.base.DFEVar;
+import com.maxeler.maxcompiler.v2.kernelcompiler.types.composite.DFEVector;
+import com.maxeler.maxcompiler.v2.kernelcompiler.types.composite.DFEVectorType;
+
+
+
+public class PRFOutputGen extends Kernel{
+	private static final DFEType type = PRFConstants.type;
+	private static final DFEType addressType = dfeInt(64);
+
+	static int p = PRFConstants.p;
+	static int q = PRFConstants.q;
+	private static  DFEVectorType<DFEVar> vectorType = new DFEVectorType<DFEVar>(type,p*q);
+	static int SINGLE_MEM_DEPTH = PRFConstants.MEMORY_DEPTH;
+	//log_2 of the memory depth
+	static int MEM_ADDRESS_BIT = PRFConstants.MEMORY_ADDRESS_SIZE;
+
+	protected PRFOutputGen(KernelParameters parameters) {
+		super(parameters);
+        DFEVector<DFEVar> output;
+        int read_port_nb = PRFConstants.READ_PORT_NB;
+        if(PRFConstants.INDEPENDENT_READ_WRITE){
+            vectorType = new DFEVectorType<DFEVar>(type,p*q*read_port_nb);
+            output =  new DFEVectorType<DFEVar>(type,p*q*read_port_nb).newInstance(this);
+            for(int port =0;port<read_port_nb;port++){
+                for(int i =0; i<p;i++){
+                    for(int j=0; j<q ; j++){
+
+                        output[(port*p*q)+(i*q)+j] <==io.input("o_P"+port+"_"+i+"_"+j, type);
+                        output[(port*p*q)+(i*q)+j].simWatch("o_P"+port+"_"+i+"_"+j);
+                        
+                    }
+                }
+
+            } 
+        }else{
+            output =  new DFEVectorType<DFEVar>(type,p*q).newInstance(this);
+
+            for(int i =0; i<p;i++){
+                for(int j=0; j<q ; j++){
+
+                    output[(i*q)+j] <==io.input("o_"+i+"_"+j, type);
+
+                }
+            }
+        }
+		io.output("output",output,vectorType );
+
+	}
+
+}

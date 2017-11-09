@@ -1,0 +1,130 @@
+Fri 14:00: ########################################## 
+Fri 14:00: Compiling.
+Fri 14:00: ########################################## 
+
+Fri 14:00: MaxCompiler version: 2016.1.1.
+Fri 14:00: Build Simulation run rule for prfv3 start time: Fri Aug 04 14:00:24 CEST 2017.
+Fri 14:00: Project location: /home/giuliostramondo/Projects/prf_maxeler_v3/prfv3/APP.
+Fri 14:00: Detailed build log: /home/giuliostramondo/Projects/prf_maxeler_v3/prfv3/APP/RunRules/Simulation/build.log.
+
+Fri 14:00: Compiling Engine Code.
+Fri 14:00: Engine building skipped (no changes on .max files).
+Fri 14:00: Compiling CPU Code.
+Fri 14:00: Run CPU project make files updating
+Fri 14:00: Executing command:
+Fri 14:00: java -jar /opt/maxcompiler/lib/MaxIDE/projectAdmin.jar -u /home/giuliostramondo/Projects/prf_maxeler_v3/prfv3/APP Simulation 
+Fri 14:00: Command output:
+
+Fri 14:00: MaxCompiler Project Admin Tool Version 2016.1.00001
+Fri 14:00:  Copyright Maxeler Technologies 2010 - 2016. All rights reserved.
+Fri 14:00: Handler version 2
+Fri 14:00: Updating RunRule dependent Makefiles for RunRule 'Simulation'
+Fri 14:00: 	Updating: Simulation
+Fri 14:00: Found makefiles: 1
+Fri 14:00: 	Updated: Simulation
+Fri 14:00: Run CPU make clean. 
+Fri 14:00: make RUNRULE=Simulation clean 
+Fri 14:00: Command output:
+Fri 14:00: make -f Makefile.rules clean
+Fri 14:00: make[1]: Entering directory `/home/giuliostramondo/Projects/prf_maxeler_v3/prfv3/APP/CPUCode'
+Fri 14:00: set -e; rm -f ../RunRules/Simulation/objects/c/ExampleProjectCpuCode.d ;                                                             \
+Fri 14:00: 	  cc -M -std=gnu99 -g -O3 -Wall -Wextra -I../RunRules/Simulation/include  -I '/opt/maxcompiler/include/slic'  -Wno-error ExampleProjectCpuCode.c > ../RunRules/Simulation/objects/c/ExampleProjectCpuCode.d.$$ ;                                 \
+Fri 14:00:       sed 's,\(ExampleProjectCpuCode\)\.o[ :]*,../RunRules/Simulation/objects/c/\1.o ../RunRules/Simulation/objects/c/ExampleProjectCpuCode.d : ,g' < ../RunRules/Simulation/objects/c/ExampleProjectCpuCode.d.$$ > ../RunRules/Simulation/objects/c/ExampleProjectCpuCode.d; \
+Fri 14:00:       rm -f ../RunRules/Simulation/objects/c/ExampleProjectCpuCode.d.$$
+Fri 14:00: make[1]: Leaving directory `/home/giuliostramondo/Projects/prf_maxeler_v3/prfv3/APP/CPUCode'
+Fri 14:00: make[1]: Entering directory `/home/giuliostramondo/Projects/prf_maxeler_v3/prfv3/APP/CPUCode'
+Fri 14:00: make -C ../RunRules/Simulation clean
+Fri 14:00: make[2]: Entering directory `/home/giuliostramondo/Projects/prf_maxeler_v3/prfv3/APP/RunRules/Simulation'
+Fri 14:00: make -f Makefile.rules clean
+Fri 14:00: make[3]: Entering directory `/home/giuliostramondo/Projects/prf_maxeler_v3/prfv3/APP/RunRules/Simulation'
+Fri 14:00: Cleaning dist
+Fri 14:00: Cleaning objects
+Fri 14:00: Cleaning installers
+Fri 14:00: make[3]: Leaving directory `/home/giuliostramondo/Projects/prf_maxeler_v3/prfv3/APP/RunRules/Simulation'
+Fri 14:00: make[2]: Leaving directory `/home/giuliostramondo/Projects/prf_maxeler_v3/prfv3/APP/RunRules/Simulation'
+Fri 14:00: make[1]: Leaving directory `/home/giuliostramondo/Projects/prf_maxeler_v3/prfv3/APP/CPUCode'
+Fri 14:00: make -C ../RunRules/Simulation clean
+Fri 14:00: make[1]: Entering directory `/home/giuliostramondo/Projects/prf_maxeler_v3/prfv3/APP/RunRules/Simulation'
+Fri 14:00: make -f Makefile.rules clean
+Fri 14:00: make[2]: Entering directory `/home/giuliostramondo/Projects/prf_maxeler_v3/prfv3/APP/RunRules/Simulation'
+Fri 14:00: Cleaning dist
+Fri 14:00: Cleaning objects
+Fri 14:00: Cleaning installers
+Fri 14:00: make[2]: Leaving directory `/home/giuliostramondo/Projects/prf_maxeler_v3/prfv3/APP/RunRules/Simulation'
+Fri 14:00: make[1]: Leaving directory `/home/giuliostramondo/Projects/prf_maxeler_v3/prfv3/APP/RunRules/Simulation'
+Fri 14:00: Run CPU make.
+Fri 14:00: make RUNRULE=Simulation 
+Fri 14:00: Command output:
+Fri 14:00: make -f Makefile.rules build
+Fri 14:00: make[1]: Entering directory `/home/giuliostramondo/Projects/prf_maxeler_v3/prfv3/APP/CPUCode'
+Fri 14:00: set -e; rm -f ../RunRules/Simulation/objects/c/utility.d ;                                                             \
+Fri 14:00: 	  cc -M -std=gnu99 -g -O3 -Wall -Wextra -I../RunRules/Simulation/include  -I '/opt/maxcompiler/include/slic'  -Wno-error utility.c > ../RunRules/Simulation/objects/c/utility.d.$$ ;                                 \
+Fri 14:00:       sed 's,\(utility\)\.o[ :]*,../RunRules/Simulation/objects/c/\1.o ../RunRules/Simulation/objects/c/utility.d : ,g' < ../RunRules/Simulation/objects/c/utility.d.$$ > ../RunRules/Simulation/objects/c/utility.d; \
+Fri 14:00:       rm -f ../RunRules/Simulation/objects/c/utility.d.$$
+Fri 14:00: set -e; rm -f ../RunRules/Simulation/objects/c/testbench_utils.d ;                                                             \
+Fri 14:00: 	  cc -M -std=gnu99 -g -O3 -Wall -Wextra -I../RunRules/Simulation/include  -I '/opt/maxcompiler/include/slic'  -Wno-error testbench_utils.c > ../RunRules/Simulation/objects/c/testbench_utils.d.$$ ;                                 \
+Fri 14:00:       sed 's,\(testbench_utils\)\.o[ :]*,../RunRules/Simulation/objects/c/\1.o ../RunRules/Simulation/objects/c/testbench_utils.d : ,g' < ../RunRules/Simulation/objects/c/testbench_utils.d.$$ > ../RunRules/Simulation/objects/c/testbench_utils.d; \
+Fri 14:00:       rm -f ../RunRules/Simulation/objects/c/testbench_utils.d.$$
+Fri 14:00: set -e; rm -f ../RunRules/Simulation/objects/c/prf.d ;                                                             \
+Fri 14:00: 	  cc -M -std=gnu99 -g -O3 -Wall -Wextra -I../RunRules/Simulation/include  -I '/opt/maxcompiler/include/slic'  -Wno-error prf.c > ../RunRules/Simulation/objects/c/prf.d.$$ ;                                 \
+Fri 14:00:       sed 's,\(prf\)\.o[ :]*,../RunRules/Simulation/objects/c/\1.o ../RunRules/Simulation/objects/c/prf.d : ,g' < ../RunRules/Simulation/objects/c/prf.d.$$ > ../RunRules/Simulation/objects/c/prf.d; \
+Fri 14:00:       rm -f ../RunRules/Simulation/objects/c/prf.d.$$
+Fri 14:00: set -e; rm -f ../RunRules/Simulation/objects/c/collection.d ;                                                             \
+Fri 14:00: 	  cc -M -std=gnu99 -g -O3 -Wall -Wextra -I../RunRules/Simulation/include  -I '/opt/maxcompiler/include/slic'  -Wno-error collection.c > ../RunRules/Simulation/objects/c/collection.d.$$ ;                                 \
+Fri 14:00:       sed 's,\(collection\)\.o[ :]*,../RunRules/Simulation/objects/c/\1.o ../RunRules/Simulation/objects/c/collection.d : ,g' < ../RunRules/Simulation/objects/c/collection.d.$$ > ../RunRules/Simulation/objects/c/collection.d; \
+Fri 14:00:       rm -f ../RunRules/Simulation/objects/c/collection.d.$$
+Fri 14:00: set -e; rm -f ../RunRules/Simulation/objects/c/ExampleProjectCpuCode.d ;                                                             \
+Fri 14:00: 	  cc -M -std=gnu99 -g -O3 -Wall -Wextra -I../RunRules/Simulation/include  -I '/opt/maxcompiler/include/slic'  -Wno-error ExampleProjectCpuCode.c > ../RunRules/Simulation/objects/c/ExampleProjectCpuCode.d.$$ ;                                 \
+Fri 14:00:       sed 's,\(ExampleProjectCpuCode\)\.o[ :]*,../RunRules/Simulation/objects/c/\1.o ../RunRules/Simulation/objects/c/ExampleProjectCpuCode.d : ,g' < ../RunRules/Simulation/objects/c/ExampleProjectCpuCode.d.$$ > ../RunRules/Simulation/objects/c/ExampleProjectCpuCode.d; \
+Fri 14:00:       rm -f ../RunRules/Simulation/objects/c/ExampleProjectCpuCode.d.$$
+Fri 14:00: make[1]: Leaving directory `/home/giuliostramondo/Projects/prf_maxeler_v3/prfv3/APP/CPUCode'
+Fri 14:00: make[1]: Entering directory `/home/giuliostramondo/Projects/prf_maxeler_v3/prfv3/APP/CPUCode'
+Fri 14:00: "/opt/maxcompiler/bin/sliccompile" ../RunRules/Simulation/maxfiles/ExampleProject.max ../RunRules/Simulation/objects/maxfiles/slic_ExampleProject.o
+Fri 14:00: Processing maxfile for VECTIS_SIM from '../RunRules/Simulation/maxfiles/ExampleProject.max'.
+Fri 14:00: /opt/maxcompiler/lib/clang/bin/start.sh clang -fgnu89-inline -pipe -O0 -std=gnu99 -Wall -Werror -frandom-seed=foo -Wno-unused-variable -Wno-unused-function -fPIC -I /opt/maxcompiler/include/slic -DMAXFILE_INC="/dev/null" -DSLIC_NO_DESTRUCTORS -c /tmp/sliccompile_3667932783602563493/cobject/max_3331924940340131355.c -o /tmp/sliccompile_3667932783602563493/cobject/max_3331924940340131355.c.o 
+Fri 14:00: /opt/maxcompiler/lib/clang/bin/start.sh clang -fgnu89-inline -pipe -O0 -std=gnu99 -Wall -Werror -frandom-seed=foo -Wno-unused-variable -Wno-unused-function -fPIC -I /opt/maxcompiler/include/slic -DMAXFILE_INC="/home/giuliostramondo/Projects/prf_maxeler_v3/prfv3/APP/CPUCode/../RunRules/Simulation/maxfiles/ExampleProject.max" -DSLIC_NO_DESTRUCTORS -c /opt/maxcompiler/src/slicinterface/MaxFileInit.c -o max_2277948521698864131.o 
+Fri 14:00: ld -r /tmp/sliccompile_3667932783602563493/cobject/max_3331924940340131355.c.o max_2277948521698864131.o -o slic_ExampleProject.o 
+Fri 14:00: Copying .max file C object into '/home/giuliostramondo/Projects/prf_maxeler_v3/prfv3/APP/CPUCode/../RunRules/Simulation/objects/maxfiles'
+Fri 14:00: cc -std=gnu99 -g -O3 -Wall -Wextra -I../RunRules/Simulation/include  -I '/opt/maxcompiler/include/slic'  -c ExampleProjectCpuCode.c -o ../RunRules/Simulation/objects/c/ExampleProjectCpuCode.o
+Fri 14:00: ExampleProjectCpuCode.c: In function ‘main’:
+Fri 14:00: ExampleProjectCpuCode.c:116: warning: format ‘%d’ expects type ‘int’, but argument 2 has type ‘int64_t’
+Fri 14:00: ExampleProjectCpuCode.c:121: warning: format ‘%d’ expects type ‘int’, but argument 2 has type ‘int64_t’
+Fri 14:00: ExampleProjectCpuCode.c:126: warning: format ‘%d’ expects type ‘int’, but argument 2 has type ‘int64_t’
+Fri 14:00: ExampleProjectCpuCode.c:134: warning: format ‘%d’ expects type ‘int’, but argument 2 has type ‘int64_t’
+Fri 14:00: ExampleProjectCpuCode.c:139: warning: format ‘%d’ expects type ‘int’, but argument 2 has type ‘int64_t’
+Fri 14:00: cc -std=gnu99 -g -O3 -Wall -Wextra -I../RunRules/Simulation/include  -I '/opt/maxcompiler/include/slic'  -c collection.c -o ../RunRules/Simulation/objects/c/collection.o
+Fri 14:00: cc -std=gnu99 -g -O3 -Wall -Wextra -I../RunRules/Simulation/include  -I '/opt/maxcompiler/include/slic'  -c prf.c -o ../RunRules/Simulation/objects/c/prf.o
+Fri 14:00: prf.c: In function ‘A_custom’:
+Fri 14:00: prf.c:106: warning: unused variable ‘c_j2’
+Fri 14:00: prf.c:104: warning: ‘c_i’ may be used uninitialized in this function
+Fri 14:00: prf.c:105: warning: ‘c_j’ may be used uninitialized in this function
+Fri 14:00: prf.c: In function ‘findLocalBestAccess’:
+Fri 14:00: prf.c:489: warning: ‘bestCoverage.j’ may be used uninitialized in this function
+Fri 14:00: prf.c:489: warning: ‘bestCoverage.i’ may be used uninitialized in this function
+Fri 14:00: cc -std=gnu99 -g -O3 -Wall -Wextra -I../RunRules/Simulation/include  -I '/opt/maxcompiler/include/slic'  -c testbench_utils.c -o ../RunRules/Simulation/objects/c/testbench_utils.o
+Fri 14:00: testbench_utils.c: In function ‘all_accesses’:
+Fri 14:00: testbench_utils.c:88: warning: unused variable ‘tot_accesses’
+Fri 14:00: testbench_utils.c: In function ‘fillPRF’:
+Fri 14:00: testbench_utils.c:161: warning: enumeration value ‘RECTANGLE_ONLY’ not handled in switch
+Fri 14:00: testbench_utils.c:161: warning: enumeration value ‘UNDEFINED’ not handled in switch
+Fri 14:00: testbench_utils.c:158: warning: ‘j’ may be used uninitialized in this function
+Fri 14:00: testbench_utils.c:157: warning: ‘input_data’ may be used uninitialized in this function
+Fri 14:00: cc -std=gnu99 -g -O3 -Wall -Wextra -I../RunRules/Simulation/include  -I '/opt/maxcompiler/include/slic'  -c utility.c -o ../RunRules/Simulation/objects/c/utility.o
+Fri 14:00: utility.c: In function ‘schemeStringFromMappingScheme’:
+Fri 14:00: utility.c:168: warning: enumeration value ‘RECTANGLE_ONLY’ not handled in switch
+Fri 14:00: utility.c:168: warning: enumeration value ‘UNDEFINED’ not handled in switch
+Fri 14:00: utility.c: In function ‘performBlockRead’:
+Fri 14:00: utility.c:182: warning: ‘PrLayer’ may be used uninitialized in this function
+Fri 14:00: cc -std=gnu99 -g -O3 -Wall -Wextra -I../RunRules/Simulation/include  -I '/opt/maxcompiler/include/slic'  -o ../RunRules/Simulation/binaries/ExampleProject ../RunRules/Simulation/objects/maxfiles/slic_ExampleProject.o ../RunRules/Simulation/objects/c/ExampleProjectCpuCode.o ../RunRules/Simulation/objects/c/collection.o ../RunRules/Simulation/objects/c/prf.o ../RunRules/Simulation/objects/c/testbench_utils.o ../RunRules/Simulation/objects/c/utility.o -g -O3  -L '/opt/maxcompiler/lib' -lslic -L '/opt/maxeler/maxeleros/lib' -lmaxeleros -lpthread -lm -lrt 
+Fri 14:00: make[1]: Leaving directory `/home/giuliostramondo/Projects/prf_maxeler_v3/prfv3/APP/CPUCode'
+Fri 14:00: Build completed: Fri Aug 04 14:00:27 CEST 2017
+
+
+Fri 14:00: ########################################## 
+Fri 14:00: Running
+Fri 14:00: ########################################## 
+Fri 14:00: Executing command:
+Fri 14:00: '/home/giuliostramondo/Projects/prf_maxeler_v3/prfv3/APP/RunRules/Simulation/binaries/ExampleProject' 
+Fri 14:00: Command output:
+Fri 14:00: Testing RoCo scheme ...
+Fri 14:00: Filling PRF...

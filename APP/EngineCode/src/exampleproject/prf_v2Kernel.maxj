@@ -1,0 +1,169 @@
+/*
+    Copyright 2016 Giulio Stramondo
+
+    This program is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
+package exampleproject;
+
+import com.maxeler.maxcompiler.v2.kernelcompiler.Kernel;
+import com.maxeler.maxcompiler.v2.kernelcompiler.KernelParameters;
+import com.maxeler.maxcompiler.v2.kernelcompiler.RoundingMode;
+import com.maxeler.maxcompiler.v2.kernelcompiler.types.base.DFEType;
+import com.maxeler.maxcompiler.v2.kernelcompiler.types.base.DFEVar;
+import com.maxeler.maxcompiler.v2.kernelcompiler.types.composite.DFEVector;
+
+class prf_v2Kernel extends Kernel {
+
+	private static final DFEType type = PRFConstants.type;
+	static int p = PRFConstants.p;
+	static int q = PRFConstants.q;
+    static boolean INDEPENDENT_READ_WRITE = PRFConstants.INDEPENDENT_READ_WRITE;
+    static int read_port_nb = 1;
+
+	
+    protected prf_v2Kernel(KernelParameters parameters) {
+		super(parameters);
+        
+        if(INDEPENDENT_READ_WRITE){//If read and write are decoupled take into account the number of read ports.
+            read_port_nb=PRFConstants.READ_PORT_NB;
+        }
+		//IMPORTANT without this optimization the default rounding mode is to the nearest-integer
+		optimization.pushRoundingMode(RoundingMode.TRUNCATE);
+
+		DFEVar index_i = io.input("index_i", type);
+		DFEVar index_j = io.input("index_j", type);
+		DFEVar acc_type = io.input("acc_type", type);
+		DFEVar write_enable = io.input("write_enable", type);
+		DFEVar input_data_arr[][] = new DFEVar[p][q];
+		for(int i =0 ; i< p ; i++)
+			for(int j =0; j< q; j++){
+			input_data_arr[i][j] = io.input("input_data_arr"+i+"_"+j, type);
+            input_data_arr[i][j].simWatch("input_data_arr"+i+"_"+j);
+		}
+            index_i.simWatch("index_i");
+            index_j.simWatch("index_j");
+            acc_type.simWatch("acc_type");
+
+
+        //Handling write path
+		DFEVector<DFEVar> aguOutput = Utils.AGU(index_i, index_j, acc_type);
+		DFEVar in_memory_addr[][] = Utils.A_standard(aguOutput);
+		DFEVar reordering_signal_i[][];
+		DFEVar reordering_signal_j[][];
+		DFEVar inv_reordering_signal_i[][];
+		DFEVar inv_reordering_signal_j[][];
+		DFEVar reordered_in_memory_addr[];
+		DFEVar reordered_input_data_arr[];
+		reordering_signal_i= Utils.MBlock_i(aguOutput);
+		reordering_signal_j = Utils.MBlock_j(aguOutput);
+        for(int i =0 ; i< p ; i++)
+            for(int j =0; j< q; j++){
+                in_memory_addr[i][j].simWatch("in_memory_addr_"+i+"_"+j);
+            }
+        for(int i =0 ; i< p ; i++)
+            for(int j =0; j< q; j++){
+                reordering_signal_i[i][j].simWatch("reordering_signal_i_"+i+"_"+j);
+            } 
+        for(int i =0 ; i< p ; i++)
+            for(int j =0; j< q; j++){
+                reordering_signal_j[i][j].simWatch("reordering_signal_j_"+i+"_"+j);
+            }
+		if(PRFConstants.INV_M){
+			inv_reordering_signal_i = Utils.inv_MBlock_i(aguOutput, acc_type);
+			inv_reordering_signal_j = Utils.inv_MBlock_j(aguOutput, acc_type);
+			reordered_in_memory_addr = Utils.Crossbar(in_memory_addr, inv_reordering_signal_i, inv_reordering_signal_j);
+			reordered_input_data_arr = Utils.Crossbar(input_data_arr, inv_reordering_signal_i, inv_reordering_signal_j);
+		}else{
+			//reordering_signal_i= Utils.MBlock_i(aguOutput);
+			//reordering_signal_j = Utils.MBlock_j(aguOutput);
+			reordered_in_memory_addr = Utils.Inv_Crossbar(in_memory_addr, reordering_signal_i, reordering_signal_j);
+            for(int k=0;k<p*q;k++)
+                    reordered_in_memory_addr[k].simWatch("reordered_in_memory_addr_"+k);
+
+			reordered_input_data_arr = Utils.Inv_Crossbar(input_data_arr, reordering_signal_i, reordering_signal_j);
+		}
+        //Handling read paths
+
+        DFEVar index_i_read;
+        DFEVar index_j_read;
+        DFEVar acc_type_read;
+        DFEVector<DFEVar> aguOutput_read;
+        DFEVar in_memory_addr_read[][];
+        DFEVar reordering_signal_i_read[][]=null;
+        DFEVar reordering_signal_j_read[][]=null;
+        DFEVar reordered_in_memory_addr_read[]=null;
+        DFEVar inv_reordering_signal_i_read[][]=null;
+        DFEVar inv_reordering_signal_j_read[][]=null;
+
+        if(PRFConstants.INDEPENDENT_READ_WRITE){
+            for(int r_port=0; r_port<read_port_nb; r_port++){
+                index_i_read = io.input("index_i_read_"+r_port, type);
+                index_j_read = io.input("index_j_read_"+r_port, type);
+                acc_type_read = io.input("acc_type_read_"+r_port, type);
+                index_i_read.simWatch("index_i_read_"+r_port);
+                index_j_read.simWatch("index_j_read_"+r_port);
+                acc_type_read.simWatch("acc_type_read_"+r_port);
+
+                aguOutput_read = Utils.AGU(index_i_read, index_j_read, acc_type_read);
+                for(int k=0;k<p*q;k++)
+                    aguOutput_read[k].simWatch("aguOutput_read_"+k);
+                in_memory_addr_read = Utils.A_standard(aguOutput_read);
+                for(int k=0;k<p*q;k++)
+                    in_memory_addr_read[k/q][k%q].simWatch("in_memory_addr_read_"+k);
+                reordering_signal_i_read= Utils.MBlock_i(aguOutput_read);
+                reordering_signal_j_read = Utils.MBlock_j(aguOutput_read);
+                for(int i =0 ; i< p ; i++)
+                    for(int j =0; j< q; j++){
+                        reordering_signal_i_read[i][j].simWatch("reordering_signal_i_read_"+i+"_"+j);
+                    } 
+                if(PRFConstants.INV_M){
+                    inv_reordering_signal_i_read = Utils.inv_MBlock_i(aguOutput_read, acc_type_read);
+                    inv_reordering_signal_j_read = Utils.inv_MBlock_j(aguOutput_read, acc_type_read);
+                    reordered_in_memory_addr_read = Utils.Crossbar(in_memory_addr_read, inv_reordering_signal_i_read, inv_reordering_signal_j_read);
+                }else{
+                    //reordering_signal_i= Utils.MBlock_i(aguOutput);
+                    //reordering_signal_j = Utils.MBlock_j(aguOutput);
+                    reordered_in_memory_addr_read = Utils.Inv_Crossbar(in_memory_addr_read, reordering_signal_i_read, reordering_signal_j_read);
+                    for(int k=0;k<p*q;k++)
+                        reordered_in_memory_addr_read[k].simWatch("reordered_in_memory_addr_read_"+k);
+                }
+                DFEVar mem_out[][];
+                DFEVar output[];
+                mem_out=Utils.parallelMemories_IND_R_W(write_enable, reordered_input_data_arr, reordered_in_memory_addr,reordered_in_memory_addr_read);
+                output = Utils.Crossbar(mem_out, reordering_signal_i_read, reordering_signal_j_read);
+                for(int i =0 ; i< p ; i++)
+                    for(int j =0; j< q; j++)
+                        mem_out[i][j].simWatch("mem_out_"+i+"_"+j);
+                for(int i =0 ; i< p ; i++)
+                    for(int j =0; j< q; j++)
+                        output[i*q+j].simWatch("o_P"+r_port+"_"+i+"_"+j);
+                for(int i =0 ; i< p ; i++)
+                    for(int j =0; j< q; j++)
+                        io.output("o_P"+r_port+"_"+i+"_"+j, output[i*q+j], type);
+            }
+            
+        }else{
+            DFEVar mem_out[][];
+            DFEVar output[];
+            mem_out = Utils.parallelMemories(write_enable, reordered_input_data_arr, reordered_in_memory_addr);
+            output = Utils.Crossbar(mem_out, reordering_signal_i, reordering_signal_j);
+            for(int i =0 ; i< p ; i++)
+                    for(int j =0; j< q; j++){
+                        io.output("o_"+i+"_"+j, output[i*q+j], type);
+                    }
+        }
+	}
+}
+

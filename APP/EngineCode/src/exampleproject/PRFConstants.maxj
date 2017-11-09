@@ -1,0 +1,52 @@
+/*
+    Copyright 2016 Giulio Stramondo
+
+    This program is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
+package exampleproject;
+
+import com.maxeler.maxcompiler.v2.kernelcompiler.Kernel;
+import com.maxeler.maxcompiler.v2.kernelcompiler.KernelParameters;
+import com.maxeler.maxcompiler.v2.kernelcompiler.types.base.DFEType;
+import com.maxeler.maxcompiler.v2.managers.engine_interfaces.CPUTypes;
+
+public class PRFConstants extends Kernel{
+	//static final DFEType type = dfeInt(32);
+	//static final DFEType addressType = dfeInt(64);
+	static int p = 2;
+	static int q = 4;
+    static int M = 256;
+    static int N = 256;
+    static int MEMORY_DEPTH = 8192;
+    static int MEMORY_ADDRESS_SIZE = 13; //log_2 of MEMORY_DEPTH;
+    static int FREQUENCY = 100;
+    static final DFEType type = dfeUInt(64);
+    static final CPUTypes cpu_type = CPUTypes.INT64;
+    static boolean INV_M=false;
+    static boolean INDEPENDENT_READ_WRITE=true;
+    static int READ_PORT_NB=1;//The number of read port is ignored i INDEPENDENT_READ_WRITE is false
+	static enum MappingScheme {
+		 ReO,
+		 ReRo,
+		 ReCo,
+		 RoCo,
+		 ReTr,
+		}
+	static MappingScheme mappingScheme=MappingScheme.ReRo;
+
+	protected PRFConstants(KernelParameters parameters) {
+		super(parameters);
+	}
+}

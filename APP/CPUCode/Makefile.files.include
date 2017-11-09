@@ -1,0 +1,5 @@
+#
+# This file is managed by MaxIDE. Do NOT change.
+#
+HEADERS:= collection.h prf.h testbench_utils.h utility.h 
+SOURCES:= ExampleProjectCpuCode.c collection.c prf.c testbench_utils.c utility.c 

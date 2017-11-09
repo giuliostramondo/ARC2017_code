@@ -1,0 +1,708 @@
+/*
+    Copyright 2016 Giulio Stramondo
+
+    This program is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
+package exampleproject;
+
+import com.maxeler.maxcompiler.v2.kernelcompiler.Kernel;
+import com.maxeler.maxcompiler.v2.kernelcompiler.KernelParameters;
+import com.maxeler.maxcompiler.v2.kernelcompiler.stdlib.KernelMath;
+import com.maxeler.maxcompiler.v2.kernelcompiler.stdlib.memory.Memory;
+import com.maxeler.maxcompiler.v2.kernelcompiler.types.base.DFEType;
+import com.maxeler.maxcompiler.v2.kernelcompiler.types.base.DFEVar;
+import com.maxeler.maxcompiler.v2.kernelcompiler.types.composite.DFEVector;
+import com.maxeler.maxcompiler.v2.kernelcompiler.types.composite.DFEVectorType;
+
+
+class Utils extends Kernel {
+/*
+ * Creates an N:1 multiplexer
+ * It is assumed that N is a power of 2  and that the select signal has at least log_2(N) bits.
+ */
+	private static final DFEType type = PRFConstants.type;
+	private static final DFEType acc_type_type = dfeUInt(8);
+
+	//private static final DFEType out_type = dfeInt(32*16);
+	static int p = PRFConstants.p;
+	static int q = PRFConstants.q;
+	static int M = PRFConstants.M;
+	static int N = PRFConstants.N;
+    static int MEMORY_DEPTH = PRFConstants.MEMORY_DEPTH;
+    static int MEMORY_ADDRESS_SIZE = PRFConstants.MEMORY_ADDRESS_SIZE; //log_2 of MEMORY_DEPTH;
+	static PRFConstants.MappingScheme mappingScheme=PRFConstants.mappingScheme;
+
+	//The output vector type has  (p*q) pairs of coordinates (i,j)
+	private static final DFEVectorType<DFEVar> vectorType = new DFEVectorType<DFEVar>(type,p*q);
+	protected Utils(KernelParameters parameters) {
+		super(parameters);
+	}
+
+	static DFEVar CreateMux(int N, DFEVar inputs[], DFEVar select){
+		DFEVar tmp[] = new DFEVar[N];
+		for(int i = 0 ; i<N ; i++)
+			tmp[i]=inputs[i];
+
+		int shift=0;
+		for(int i = N/2; i>=1;i/=2){
+			for(int j = 0 ; j<i ; j++){
+				DFEVar sel = (select>>shift).cast(dfeUInt(1));
+				tmp[j] = sel ? tmp[2*j+1] : tmp[2*j];
+			}
+			shift++;
+		}
+
+		return tmp[0];
+	}
+
+
+	static DFEVar[] Crossbar(DFEVar input[][], DFEVar select_v_input[][], DFEVar select_h_input[][]){
+		DFEVar output[] = new DFEVar[p*q];
+		DFEVar select[] = new DFEVar[p*q];
+		DFEVar linear_input[] = new DFEVar[p*q];
+
+		for(int i=0;i<p;i++){
+			for(int j=0;j<q;j++){
+			 select[i*q+j]= select_v_input[i][j]*q+ select_h_input[i][j];
+			 linear_input[i*q+j]= input[i][j];
+			}
+		}
+
+		for(int i=0;i<p;i++){
+			for(int j=0;j<q;j++){
+
+				output[i*q+j] = Utils.CreateMux(p*q, linear_input, select[i*q+j]);
+
+			}
+		}
+		return output;
+	}
+
+	private static int xgcd_s(int b,int n){
+		int x0 = 1;
+		int x1 = 0;
+		int y0 = 0;
+		int y1 = 1;
+		int q;
+		int r;
+		while( n != 0){
+			/*				Python Implementation
+			 *             q, b, n = b // n, n, b % n
+            				x0, x1 = x1, x0 - q * x1
+            				y0, y1 = y1, y0 - q * y1
+			 */
+			q = b/n;
+			r = b%n;
+			b = n;
+			n = r;
+			int temp = x1;
+			x1 = x0 - q * x1;
+			x0 = temp;
+
+			temp = y1;
+			y1 = y0 - q * y1;
+			y0 = temp;
+		}
+		return y0;
+	}
+	private static int xgcd_t(int b,int n){
+		int x0 = 1;
+		int x1 = 0;
+		int y0 = 0;
+		int y1 = 1;
+		int q;
+		int r;
+		while( n != 0){
+			/*				Python Implementation
+			 *             q, b, n = b // n, n, b % n
+            				x0, x1 = x1, x0 - q * x1
+            				y0, y1 = y1, y0 - q * y1
+			 */
+			q = b/n;
+			r = b%n;
+			b = n;
+			n = r;
+			int temp = x1;
+			x1 = x0 - q * x1;
+			x0 = temp;
+
+			temp = y1;
+			y1 = y0 - q * y1;
+			y0 = temp;
+		}
+		return x0;
+	}
+	public static int compute_omega(int p,int q){
+		int sigma = 0;
+		int s = xgcd_s(p,q);
+		int omega = s + sigma *p;
+		while (omega <= 0){
+			sigma++;
+			omega = s + sigma *p;
+		}
+		return omega;
+	}
+	public static int compute_omega_2(int p,int q){
+		int sigma = 0;
+		int t = xgcd_t(p,q);
+		int omega = t + sigma *q;
+		while (omega <= 0){
+			sigma++;
+			omega = t + sigma *q;
+		}
+		return omega;
+	}
+
+	static DFEVar[] CreateDeMux(int N, DFEVar inputs[], DFEVar select[]){
+		DFEVar tmp[] = new DFEVar[N];
+		for(int i = 0 ; i<N ; i++)
+			tmp[i] = inputs[i];
+
+		for(int i = 0 ; i<N ; i++){
+			for(int j=0; j<N;j++){
+				tmp[i]=select[j].eq(i) ? inputs[j] : tmp[i];
+			}
+
+		}
+
+
+		return tmp;
+	}
+
+	static DFEVar[] Inv_Crossbar(DFEVar input[][], DFEVar select_v_input[][], DFEVar select_h_input[][]){
+		DFEVar output[] = new DFEVar[p*q];
+		DFEVar select[] = new DFEVar[p*q];
+		DFEVar linear_input[] = new DFEVar[p*q];
+
+		for(int i=0;i<p;i++){
+			for(int j=0;j<q;j++){
+			 select[i*q+j]= select_v_input[i][j]*q+ select_h_input[i][j];
+			 linear_input[i*q+j]= input[i][j];
+			}
+		}
+
+		output = Utils.CreateDeMux(p*q, linear_input, select);
+		return output;
+	}
+
+	static DFEVector<DFEVar> AGU (DFEVar index_i, DFEVar index_j, DFEVar acc_type){
+		Kernel prf_kernel = index_i.getKernel();
+		DFEVector<DFEVar> Rectangle = vectorType.newInstance(prf_kernel);
+		DFEVector<DFEVar> Row = vectorType.newInstance(prf_kernel);
+		DFEVector<DFEVar> Column = vectorType.newInstance(prf_kernel);
+		DFEVector<DFEVar> MainDiag = vectorType.newInstance(prf_kernel);
+		DFEVector<DFEVar> SecondaryDiag = vectorType.newInstance(prf_kernel);
+		DFEVector<DFEVar> TransRectangle = vectorType.newInstance(prf_kernel);
+		DFEVector<DFEVar> outVector;
+
+		for(int i=0;i<p;i++){
+			for(int j=0;j<q;j++){
+				Rectangle[i*q+j]<==(((index_i+i)<<16)|(index_j+j)).cast(type);
+				Row[i*q+j]<==(((index_i)<<16)|(index_j+(i*q)+j)).cast(type);
+				Column[i*q+j]<==(((index_i+(i*q)+j)<<16)|(index_j)).cast(type);
+				MainDiag[i*q+j]<==(((index_i+(i*q)+j)<<16)|(index_j+(i*q)+j)).cast(type);
+				SecondaryDiag[i*q+j]<==(((index_i+(i*q)+j)<<16)|(index_j-((i*q)+j))).cast(type);
+				TransRectangle[i*q+j]<==(((index_i+j)<<16)|(index_j+i)).cast(type);
+			}
+		}
+
+
+		//Access type selection
+		outVector=acc_type.eq(0) ? Rectangle: Rectangle;
+		outVector=acc_type.eq(1) ? Row: outVector;
+		outVector=acc_type.eq(2) ? Column: outVector;
+		outVector=acc_type.eq(3) ? MainDiag: outVector;
+		outVector=acc_type.eq(4) ? SecondaryDiag: outVector;
+		outVector=acc_type.eq(5) ? TransRectangle: outVector;
+
+		return outVector;
+	}
+
+	static  DFEVar[][] A_standard(DFEVector<DFEVar> AGU_Output){
+		DFEVar index_i[][] = new DFEVar[p][q];
+		DFEVar index_j[][] = new DFEVar[p][q];
+
+		for(int i =0; i<p;i++){
+			for(int j=0; j<q ; j++){
+				index_i[i][j]= AGU_Output[i*q+j]>>16;
+				index_j[i][j]= AGU_Output[i*q+j]&0x0000FFFF;
+			}
+		}
+		DFEVar Addresses[][] = new DFEVar[p][q];
+
+		for(int i =0; i<p;i++){
+			for(int j=0; j<q ; j++){
+				//Here there could be the need to call a flooring function,
+				//the default one (Math.floor) doesn't accept DFEVar as args.
+				//Being the DFEVar of the dfeInt(32) type i expect the division
+				//to do already the floor.
+				Addresses[i][j]= (index_i[i][j]/p) * (M/q) + (index_j[i][j]/q);
+			}
+		}
+		return Addresses;
+	}
+
+	static DFEVar[][] MBlock_i(DFEVector<DFEVar> AGU_Output){
+		DFEVar index_i[][] = new DFEVar[p][q];
+		DFEVar index_j[][] = new DFEVar[p][q];
+		DFEVar output_i[][] = new DFEVar[p][q];
+		for(int i =0; i<p;i++){
+			for(int j=0; j<q ; j++){
+				index_i[i][j]= AGU_Output[i*q+j]>>16;
+				index_j[i][j]= AGU_Output[i*q+j]&0x0000FFFF;
+			}
+		}
+
+		for(int i=0;i<p;i++){
+			for(int j=0;j<q;j++){
+
+				if (mappingScheme == PRFConstants.MappingScheme.ReO){
+					//The one below is the M function for the ReO
+					output_i[i][j] = KernelMath.modulo(index_i[i][j],p).cast(type);//m_v(i,j,scheme);
+
+					}
+				if (mappingScheme == PRFConstants.MappingScheme.ReRo){
+				//The one below is the M function for the ReRo
+				output_i[i][j] = KernelMath.modulo(index_i[i][j]+
+									KernelMath.floor(index_j[i][j]/q),p).cast(type);//m_v(i,j,scheme);
+
+				}
+				else if (mappingScheme == PRFConstants.MappingScheme.ReCo){
+				//The one below is the M function for the ReCo
+				output_i[i][j] = KernelMath.modulo(index_i[i][j],p).cast(type);//m_v(i,j,scheme);
+
+				}
+
+				else if (mappingScheme == PRFConstants.MappingScheme.RoCo){
+				//The one below is the M function for the RoCo
+				//(index_i+ (int)floor( index_j/q ))%p;
+				output_i[i][j] =KernelMath.modulo(index_i[i][j]+KernelMath.floor(index_j[i][j]/q),p).cast(type);//m_v(i,j,scheme);
+				// ((int)floor(index_i/p) + index_j)%q;
+
+				}
+
+				else if (  mappingScheme == PRFConstants.MappingScheme.ReTr){
+				//The one below is the M function for the ReTr
+					if(p<q){
+						//	index_i%p;
+						//output_i[i][j] = KernelMath.modulo(index_i[i][j],q).cast(type);//m_v(i,j,scheme);
+						output_i[i][j] = KernelMath.modulo(index_i[i][j],p).cast(type);//m_v(i,j,scheme);
+						// (index_i-index_i%p+index_j)%q;
+					}else{
+						//	(index_i+index_j-(index_j%q))%q;
+						output_i[i][j] = KernelMath.modulo(index_i[i][j]- KernelMath.modulo(index_j[i][j],q).cast(type)+index_j[i][j],q).cast(type);//m_v(i,j,scheme);
+						// index_j%q;
+
+					}
+				}
+
+			}
+		}
+
+		return output_i;
+	}
+	static DFEVar[][] inv_MBlock_i(DFEVector<DFEVar> AGU_Output,DFEVar acc_type){
+		DFEVar index_i[][] = new DFEVar[p][q];
+		DFEVar index_j[][] = new DFEVar[p][q];
+		DFEVar output_i[][] = new DFEVar[p][q];
+		DFEVar output_j[][] = new DFEVar[p][q];
+		//DFEVar mappingScheme = io.input("shape", type);
+
+
+
+		Kernel prf_kernel = acc_type.getKernel();
+
+		for(int i =0; i<p;i++){
+			for(int j=0; j<q ; j++){
+				index_i[i][j]= AGU_Output[i*q+j]>>16;
+				index_j[i][j]= AGU_Output[i*q+j]&0x0000FFFF;
+			}
+		}
+		index_i[0][0].simWatch("i"+0+"_"+0);
+		index_j[0][0].simWatch("j"+0+"_"+0);
+		acc_type.simWatch("acc_type");
+		//In the following expression i and j are fixed and refer to the offset of the parallel access with respect to the prf memory.
+		//the output of this inverse m gives the offsets alpha and beta that identify what to output on out_k_l ( input_(i+alpha) input_(j+beta) )
+		DFEVar j = index_j[0][0];
+		DFEVar i = index_i[0][0];
+
+		for(int k=0;k<p;k++){
+			for(int l=0;l<q;l++){
+
+
+
+		        DFEVar beta=prf_kernel.constant.var(0);
+		        DFEVar alpha=prf_kernel.constant.var(0);
+
+		        if (mappingScheme == PRFConstants.MappingScheme.ReO){
+		        	//Rectangle Access
+			        beta =  KernelMath.modulo((l-(KernelMath.modulo(j,q).cast(type))),q).cast(type);
+			        alpha = KernelMath.modulo((k-(KernelMath.modulo(i,p).cast(type))),p).cast(type);
+		        }
+				 if (mappingScheme == PRFConstants.MappingScheme.ReRo){
+					 //Set up and initialize a ROM containing the omega values;
+
+					 //Rectangle and ROW
+					 DFEVar beta_Rectangle =  KernelMath.modulo((l-(KernelMath.modulo(j,q).cast(type))),q).cast(type);
+					 DFEVar alpha_Rectangle = KernelMath.modulo((k-KernelMath.modulo(i,p).cast(type)-
+				        		KernelMath.modulo((j/q),p).cast(type)-((KernelMath.modulo(j,q).cast(type))+beta_Rectangle)/q),p).cast(type);
+
+					//MainDiagonal
+					 DFEVar cj1_m = (l<KernelMath.modulo(j,q)).cast(type);
+					 int omega_main = compute_omega(p, q+1);
+					 //cj2 = ((k - i % p - ((l - j % q) % q) % p - cj1 - (j / q) % p)%p * compute_omega(p, q + 1)) % p
+					 DFEVar cj2_m = KernelMath.modulo((KernelMath.modulo(k - KernelMath.modulo(i,p).cast(type)- KernelMath.modulo(KernelMath.modulo(l-KernelMath.modulo(j,q).cast(type),q),p).cast(type) - cj1_m - KernelMath.modulo(j/q,p).cast(type),p)*omega_main).cast(type),p).cast(type);
+					 DFEVar res = KernelMath.modulo((l-(KernelMath.modulo(j,q).cast(type))),q).cast(type) + (q*cj2_m);
+					 DFEVar alpha_MainDiag= (res/q).cast(type);
+					 DFEVar beta_MainDiag =  KernelMath.modulo(res,q).cast(type);
+
+					 //SecondaryDiagonal
+					 int omega_secondary = compute_omega(p, q-1);
+					 DFEVar cj1_s = (l>KernelMath.modulo(j,q)).cast(type);
+					 DFEVar cj2_s = KernelMath.modulo((KernelMath.modulo(k - KernelMath.modulo(i,p).cast(type)- KernelMath.modulo(KernelMath.modulo(KernelMath.modulo(j,q).cast(type)-l,q).cast(type),p).cast(type) -KernelMath.modulo(cj1_s,p).cast(type)- KernelMath.modulo(j/q,p).cast(type),p).cast(type)*omega_secondary).cast(type),p).cast(type);
+					 DFEVar res_s = KernelMath.modulo(((KernelMath.modulo(j,q).cast(type))-l),q).cast(type) + (q*cj2_s);
+					 DFEVar alpha_SecondaryDiag= res_s/q;
+					 DFEVar beta_SecondaryDiag = KernelMath.modulo(res_s,q).cast(type);
+
+
+					 //Select correct output based on the access type
+					 alpha= acc_type.eq(0) ? alpha_Rectangle : alpha_Rectangle;
+					 alpha= acc_type.eq(1) ? alpha_Rectangle : alpha;
+					 alpha= acc_type.eq(3) ? alpha_MainDiag : alpha;
+					 alpha= acc_type.eq(4) ? alpha_SecondaryDiag : alpha;
+
+					 beta= acc_type.eq(0) ? beta_Rectangle : beta_Rectangle;
+					 beta= acc_type.eq(1) ? beta_Rectangle : beta;
+					 beta= acc_type.eq(3) ? beta_MainDiag : beta;
+					 beta= acc_type.eq(4) ? beta_SecondaryDiag : beta;
+
+				 }
+				 else if (mappingScheme == PRFConstants.MappingScheme.ReCo){
+				   //Rectangle and COLUMN
+				   DFEVar alpha_Rectangle =  KernelMath.modulo((k-KernelMath.modulo(i,p).cast(type)),p).cast(type);
+				   DFEVar beta_Rectangle = KernelMath.modulo((l-KernelMath.modulo(j,q).cast(type)-
+				        		KernelMath.modulo((i/p),q).cast(type)-((KernelMath.modulo(i,p).cast(type))+alpha_Rectangle)/p),q).cast(type);
+
+				   //Column
+				   DFEVar res_c = KernelMath.modulo((beta_Rectangle*p)+alpha_Rectangle,p*q).cast(type);
+				   DFEVar alpha_Column = res_c/q;
+				   DFEVar beta_Column = KernelMath.modulo(res_c,q).cast(type);
+				   alpha_Column.simWatch("alpha_Column");
+				   beta_Column.simWatch("beta_Column");
+				 //MainDiagonal
+				   int omega_main = Utils.compute_omega_2(p+1, q);
+				   DFEVar ci1_m = (k<KernelMath.modulo(i,p)).cast(type);
+				   DFEVar ci2_m = KernelMath.modulo(KernelMath.modulo(l - KernelMath.modulo(j,q).cast(type)- KernelMath.modulo(KernelMath.modulo(k-KernelMath.modulo(i,p).cast(type),p).cast(type),q).cast(type) - ci1_m - KernelMath.modulo(i/p,q).cast(type),q).cast(type)*omega_main,q).cast(type);
+				   DFEVar res = KernelMath.modulo((k-(KernelMath.modulo(i,p).cast(type))),p).cast(type) + p*ci2_m;
+				   DFEVar alpha_MainDiag= res/q;
+				   DFEVar beta_MainDiag =  KernelMath.modulo(res,q).cast(type);
+
+				   //SecondaryDiagonal
+				   int omega_secondary = Utils.compute_omega_2(p-1, q);
+				   DFEVar ci1_s = (k<KernelMath.modulo(i,p)).cast(type);
+				   DFEVar cj2_s = KernelMath.modulo((KernelMath.modulo(ci1_s + KernelMath.modulo(i/p,q).cast(type) + KernelMath.modulo(j,q).cast(type) - KernelMath.modulo(KernelMath.modulo(k-KernelMath.modulo(i,p).cast(type),p).cast(type),q).cast(type) -l,q)* omega_secondary).cast(type),q).cast(type);
+				   DFEVar res_s = KernelMath.modulo((k-(KernelMath.modulo(i,p).cast(type))),p).cast(type) + (p*cj2_s);
+				   DFEVar alpha_SecondaryDiag= res_s/q;
+				   DFEVar beta_SecondaryDiag = KernelMath.modulo(res_s,q).cast(type);
+
+					 //Select correct output based on the access type
+					 alpha= acc_type.eq(0) ? alpha_Rectangle : alpha_Rectangle;
+					 alpha= acc_type.eq(2) ? alpha_Column : alpha;
+					 alpha= acc_type.eq(3) ? alpha_MainDiag : alpha;
+					 alpha= acc_type.eq(4) ? alpha_SecondaryDiag : alpha;
+
+					 beta= acc_type.eq(0) ? beta_Rectangle : beta_Rectangle;
+					 beta= acc_type.eq(2) ? beta_Column : beta;
+					 beta= acc_type.eq(3) ? beta_MainDiag : beta;
+					 beta= acc_type.eq(4) ? beta_SecondaryDiag : beta;
+
+				 }
+				 else if ( mappingScheme == PRFConstants.MappingScheme.RoCo){
+				        alpha = KernelMath.modulo((k-KernelMath.modulo(i,p).cast(type)-
+				        		KernelMath.modulo((j/q),p).cast(type)
+				        		-((KernelMath.modulo(j,q).cast(type))+(
+				        				KernelMath.modulo((l-(KernelMath.modulo(j,q).cast(type))),q).cast(type)))/q),p).cast(type);
+				        beta  = KernelMath.modulo((l-KernelMath.modulo(j,q).cast(type)-
+				        		KernelMath.modulo((i/p),q).cast(type)-((KernelMath.modulo(i,p)).cast(type)+(
+				        				KernelMath.modulo((k-KernelMath.modulo(i,p).cast(type)),p)).cast(type))/p),q).cast(type);
+				 }
+				 else if (  mappingScheme == PRFConstants.MappingScheme.ReTr){
+				        if (p<q){
+				            alpha = KernelMath.modulo((k-KernelMath.modulo(i,p).cast(type)),p).cast(type);
+				            beta  = KernelMath.modulo((l-KernelMath.modulo((i+alpha),q).cast(type)
+				            		+KernelMath.modulo((i+alpha),p).cast(type)-KernelMath.modulo(j,q).cast(type)),q).cast(type);
+				        }
+				        else{
+				            beta =  KernelMath.modulo((l-(KernelMath.modulo(j,q).cast(type))),q).cast(type);
+				            alpha = KernelMath.modulo((k-KernelMath.modulo(i,p).cast(type)-
+				            		KernelMath.modulo((j+beta),p).cast(type)
+				            		+KernelMath.modulo((j+beta),q).cast(type)),p).cast(type);
+				        }
+				 }
+
+
+
+				output_i[k][l] = alpha;
+				output_j[k][l] = beta;
+				output_i[k][l].simWatch("output_i_"+k+"_"+l);
+				output_j[k][l].simWatch("output_j_"+k+"_"+l);
+
+			}
+		}
+
+		return output_i;
+
+	}
+
+	static DFEVar[][] inv_MBlock_j(DFEVector<DFEVar> AGU_Output,DFEVar acc_type){
+		DFEVar index_i[][] = new DFEVar[p][q];
+		DFEVar index_j[][] = new DFEVar[p][q];
+		DFEVar output_i[][] = new DFEVar[p][q];
+		DFEVar output_j[][] = new DFEVar[p][q];
+		//DFEVar mappingScheme = io.input("shape", type);
+
+		Kernel prf_kernel = acc_type.getKernel();
+
+		for(int i =0; i<p;i++){
+			for(int j=0; j<q ; j++){
+				index_i[i][j]= AGU_Output[i*q+j]>>16;
+				index_j[i][j]= AGU_Output[i*q+j]&0x0000FFFF;
+			}
+		}
+
+		//In the following expression i and j are fixed and refer to the offset of the parallel access with respect to the prf memory.
+		//the output of this inverse m gives the offsets alpha and beta that identify what to output on out_k_l ( input_(i+alpha) input_(j+beta) )
+		DFEVar j = index_j[0][0];
+		DFEVar i = index_i[0][0];
+
+		for(int k=0;k<p;k++){
+			for(int l=0;l<q;l++){
+
+
+
+		        DFEVar beta=prf_kernel.constant.var(0);
+		        DFEVar alpha=prf_kernel.constant.var(0);
+
+		        if (mappingScheme == PRFConstants.MappingScheme.ReO){
+		        	//Rectangle Access
+			        beta =  KernelMath.modulo((l-(KernelMath.modulo(j,q).cast(type))),q).cast(type);
+			        alpha = KernelMath.modulo((k-(KernelMath.modulo(i,p).cast(type))),p).cast(type);
+		        }
+				 if (mappingScheme == PRFConstants.MappingScheme.ReRo){
+					 //Set up and initialize a ROM containing the omega values;
+
+					 //Rectangle and ROW
+					 DFEVar beta_Rectangle =  KernelMath.modulo((l-(KernelMath.modulo(j,q).cast(type))),q).cast(type);
+					 DFEVar alpha_Rectangle = KernelMath.modulo((k-KernelMath.modulo(i,p).cast(type)-
+				        		KernelMath.modulo((j/q),p).cast(type)-((KernelMath.modulo(j,q).cast(type))+beta_Rectangle)/q),p).cast(type);
+
+					//MainDiagonal
+					 DFEVar cj1_m = (l<KernelMath.modulo(j,q)).cast(type);
+					 int omega_main = compute_omega(p, q+1);
+					 //cj2 = ((k - i % p - ((l - j % q) % q) % p - cj1 - (j / q) % p)%p * compute_omega(p, q + 1)) % p
+					 DFEVar cj2_m = KernelMath.modulo((KernelMath.modulo(k - KernelMath.modulo(i,p).cast(type)- KernelMath.modulo(KernelMath.modulo(l-KernelMath.modulo(j,q).cast(type),q),p).cast(type) - cj1_m - KernelMath.modulo(j/q,p).cast(type),p)*omega_main).cast(type),p).cast(type);
+					 DFEVar res = KernelMath.modulo((l-(KernelMath.modulo(j,q).cast(type))),q).cast(type) + (q*cj2_m);
+					 DFEVar alpha_MainDiag= (res/q).cast(type);
+					 DFEVar beta_MainDiag =  KernelMath.modulo(res,q).cast(type);
+
+					 //SecondaryDiagonal
+					 int omega_secondary = compute_omega(p, q-1);
+					 DFEVar cj1_s = -1*(l>KernelMath.modulo(j,q)).cast(type);
+					 DFEVar cj2_s = KernelMath.modulo((KernelMath.modulo(k - KernelMath.modulo(i,p).cast(type)- KernelMath.modulo(KernelMath.modulo(KernelMath.modulo(j,q).cast(type)-l,q).cast(type),p).cast(type) -KernelMath.modulo(cj1_s,p).cast(type)- KernelMath.modulo(j/q,p).cast(type),p).cast(type)*omega_secondary).cast(type),p).cast(type);
+					 DFEVar res_s = KernelMath.modulo(((KernelMath.modulo(j,q).cast(type))-l),q).cast(type) + (q*cj2_s);
+					 DFEVar alpha_SecondaryDiag= res_s/q;
+					 DFEVar beta_SecondaryDiag = KernelMath.modulo(res_s,q).cast(type);
+
+
+					 //Select correct output based on the access type
+					 alpha= acc_type.eq(0) ? alpha_Rectangle : alpha_Rectangle;
+					 alpha= acc_type.eq(1) ? alpha_Rectangle : alpha;
+					 alpha= acc_type.eq(3) ? alpha_MainDiag : alpha;
+					 alpha= acc_type.eq(4) ? alpha_SecondaryDiag : alpha;
+
+					 beta= acc_type.eq(0) ? beta_Rectangle : beta_Rectangle;
+					 beta= acc_type.eq(1) ? beta_Rectangle : beta;
+					 beta= acc_type.eq(3) ? beta_MainDiag : beta;
+					 beta= acc_type.eq(4) ? beta_SecondaryDiag : beta;
+
+				 }
+				 else if (mappingScheme == PRFConstants.MappingScheme.ReCo){
+				   //Rectangle and COLUMN
+				   DFEVar alpha_Rectangle =  KernelMath.modulo((k-KernelMath.modulo(i,p).cast(type)),p).cast(type);
+				   DFEVar beta_Rectangle = KernelMath.modulo((l-KernelMath.modulo(j,q).cast(type)-
+				        		KernelMath.modulo((i/p),q).cast(type)-((KernelMath.modulo(i,p).cast(type))+alpha_Rectangle)/p),q).cast(type);
+
+				   //Column
+				   DFEVar res_c = KernelMath.modulo((beta_Rectangle*p)+alpha_Rectangle,p*q).cast(type);
+				   DFEVar alpha_Column = res_c/q;
+				   DFEVar beta_Column = KernelMath.modulo(res_c,q).cast(type);
+				   alpha_Column.simWatch("alpha_Column");
+				   beta_Column.simWatch("beta_Column");
+				 //MainDiagonal
+				   int omega_main = Utils.compute_omega_2(p+1, q);
+				   DFEVar ci1_m = (k<KernelMath.modulo(i,p)).cast(type);
+				   DFEVar ci2_m = KernelMath.modulo(KernelMath.modulo(l - KernelMath.modulo(j,q).cast(type)- KernelMath.modulo(KernelMath.modulo(k-KernelMath.modulo(i,p).cast(type),p).cast(type),q).cast(type) - ci1_m - KernelMath.modulo(i/p,q).cast(type),q).cast(type)*omega_main,q).cast(type);
+				   DFEVar res = KernelMath.modulo((k-(KernelMath.modulo(i,p).cast(type))),p).cast(type) + p*ci2_m;
+				   DFEVar alpha_MainDiag= res/q;
+				   DFEVar beta_MainDiag =  KernelMath.modulo(res,q).cast(type);
+
+				   //SecondaryDiagonal
+				   int omega_secondary = Utils.compute_omega_2(p-1, q);
+				   DFEVar ci1_s = (k<KernelMath.modulo(i,p)).cast(type);
+				   DFEVar cj2_s = KernelMath.modulo((KernelMath.modulo(ci1_s + KernelMath.modulo(i/p,q).cast(type) + KernelMath.modulo(j,q).cast(type) - KernelMath.modulo(KernelMath.modulo(k-KernelMath.modulo(i,p).cast(type),p).cast(type),q).cast(type) -l,q)* omega_secondary).cast(type),q).cast(type);
+				   DFEVar res_s = KernelMath.modulo((k-(KernelMath.modulo(i,p).cast(type))),p).cast(type) + (p*cj2_s);
+				   DFEVar alpha_SecondaryDiag= res_s/q;
+				   DFEVar beta_SecondaryDiag = KernelMath.modulo(res_s,q).cast(type);
+
+					 //Select correct output based on the access type
+					 alpha= acc_type.eq(0) ? alpha_Rectangle : alpha_Rectangle;
+					 alpha= acc_type.eq(2) ? alpha_Column : alpha;
+					 alpha= acc_type.eq(3) ? alpha_MainDiag : alpha;
+					 alpha= acc_type.eq(4) ? alpha_SecondaryDiag : alpha;
+
+					 beta= acc_type.eq(0) ? beta_Rectangle : beta_Rectangle;
+					 beta= acc_type.eq(2) ? beta_Column : beta;
+					 beta= acc_type.eq(3) ? beta_MainDiag : beta;
+					 beta= acc_type.eq(4) ? beta_SecondaryDiag : beta;
+
+				 }
+				 else if ( mappingScheme == PRFConstants.MappingScheme.RoCo){
+				        alpha = KernelMath.modulo((k-KernelMath.modulo(i,p).cast(type)-
+				        		KernelMath.modulo((j/q),p).cast(type)
+				        		-((KernelMath.modulo(j,q).cast(type))+(
+				        				KernelMath.modulo((l-(KernelMath.modulo(j,q).cast(type))),q).cast(type)))/q),p).cast(type);
+				        beta  = KernelMath.modulo((l-KernelMath.modulo(j,q).cast(type)-
+				        		KernelMath.modulo((i/p),q).cast(type)-((KernelMath.modulo(i,p)).cast(type)+(
+				        				KernelMath.modulo((k-KernelMath.modulo(i,p).cast(type)),p)).cast(type))/p),q).cast(type);
+				 }
+				 else if (  mappingScheme == PRFConstants.MappingScheme.ReTr){
+				        if (p<q){
+				            alpha = KernelMath.modulo((k-KernelMath.modulo(i,p).cast(type)),p).cast(type);
+				            beta  = KernelMath.modulo((l-KernelMath.modulo((i+alpha),q).cast(type)
+				            		+KernelMath.modulo((i+alpha),p).cast(type)-KernelMath.modulo(j,q).cast(type)),q).cast(type);
+				        }
+				        else{
+				            beta =  KernelMath.modulo((l-(KernelMath.modulo(j,q).cast(type))),q).cast(type);
+				            alpha = KernelMath.modulo((k-KernelMath.modulo(i,p).cast(type)-
+				            		KernelMath.modulo((j+beta),p).cast(type)
+				            		+KernelMath.modulo((j+beta),q).cast(type)),p).cast(type);
+				        }
+				 }
+
+
+
+				output_i[k][l] = alpha;
+				output_j[k][l] = beta;
+
+
+			}
+		}
+
+		return output_j;
+
+	}
+	static DFEVar[][] MBlock_j(DFEVector<DFEVar> AGU_Output){
+		DFEVar index_i[][] = new DFEVar[p][q];
+		DFEVar index_j[][] = new DFEVar[p][q];
+		DFEVar output_j[][] = new DFEVar[p][q];
+		for(int i =0; i<p;i++){
+			for(int j=0; j<q ; j++){
+				index_i[i][j]= AGU_Output[i*q+j]>>16;
+				index_j[i][j]= AGU_Output[i*q+j]&0x0000FFFF;
+			}
+		}
+
+		for(int i=0;i<p;i++){
+			for(int j=0;j<q;j++){
+
+				if (mappingScheme == PRFConstants.MappingScheme.ReO){
+					//The one below is the M function for the ReO
+					output_j[i][j] = KernelMath.modulo(index_j[i][j],q).cast(type);      //m_h(i,j,scheme);
+					}
+				if (mappingScheme == PRFConstants.MappingScheme.ReRo){
+				//The one below is the M function for the ReRo
+				output_j[i][j] = KernelMath.modulo(index_j[i][j],q).cast(type);      //m_h(i,j,scheme);
+				}
+				else if (mappingScheme == PRFConstants.MappingScheme.ReCo){
+				//The one below is the M function for the ReCo
+				output_j[i][j] = KernelMath.modulo(KernelMath.floor(index_i[i][j]/p).cast(type)
+									+index_j[i][j],q).cast(type);      //m_h(i,j,scheme);
+				}
+
+				else if (mappingScheme == PRFConstants.MappingScheme.RoCo){
+				//The one below is the M function for the RoCo
+				//(index_i+ (int)floor( index_j/q ))%p;
+
+				output_j[i][j] =KernelMath.modulo(KernelMath.floor(index_i[i][j]/p).cast(type)+index_j[i][j],q).cast(type);
+				}
+
+				else if (  mappingScheme == PRFConstants.MappingScheme.ReTr){
+				//The one below is the M function for the ReTr
+					if(p<q){
+						// (index_i-index_i%p+index_j)%q;
+						output_j[i][j] = KernelMath.modulo(index_i[i][j]- KernelMath.modulo(index_i[i][j],p).cast(type)+index_j[i][j],q).cast(type);
+					}else{
+						// index_j%q;
+						output_j[i][j] = KernelMath.modulo(index_j[i][j],q);
+					}
+				}
+
+			}
+		}
+
+		return output_j;
+	}
+
+	static DFEVar[][] parallelMemories(DFEVar write_enable, DFEVar input_data_arr[], DFEVar in_module_address[]){
+		DFEVar output[][] = new DFEVar[p][q];
+		Kernel prf_kernel = write_enable.getKernel();
+		Memory<DFEVar> memorymodules [][] =  new Memory[p][q];
+		for(int i =0 ; i< p ; i++){
+			for(int j =0; j< q; j++)
+				memorymodules[i][j] = prf_kernel.mem.alloc(type, MEMORY_DEPTH);
+
+		}
+
+		for(int i =0 ; i< p ; i++)
+			for(int j =0; j< q; j++){
+			DFEVar enable = (write_enable>>(i*q+j)).cast(dfeUInt(1));
+			memorymodules[i][j].write((in_module_address[i*q+j]).cast(dfeUInt(MEMORY_ADDRESS_SIZE)), input_data_arr[i*q+j], enable);
+			output[i][j] =memorymodules[i][j].read((in_module_address[i*q+j]).cast(dfeUInt(MEMORY_ADDRESS_SIZE)));
+			//output[i][j].simWatch("output_"+i+"_"+j);
+		}
+		return output;
+	}
+
+	static DFEVar[][] parallelMemories_IND_R_W(DFEVar write_enable, DFEVar input_data_arr[], DFEVar in_module_address[], DFEVar in_module_address_read[]){
+		DFEVar output[][] = new DFEVar[p][q];
+		Kernel prf_kernel = write_enable.getKernel();
+		Memory<DFEVar> memorymodules [][] =  new Memory[p][q];
+		for(int i =0 ; i< p ; i++){
+			for(int j =0; j< q; j++)
+				memorymodules[i][j] = prf_kernel.mem.alloc(type, MEMORY_DEPTH);
+
+		}
+
+		for(int i =0 ; i< p ; i++)
+			for(int j =0; j< q; j++){
+			DFEVar enable = (write_enable>>(i*q+j)).cast(dfeUInt(1));
+			memorymodules[i][j].write((in_module_address[i*q+j]).cast(dfeUInt(MEMORY_ADDRESS_SIZE)), input_data_arr[i*q+j], enable);
+			output[i][j] =memorymodules[i][j].read((in_module_address_read[i*q+j]).cast(dfeUInt(MEMORY_ADDRESS_SIZE)));
+			//output[i][j].simWatch("output_"+i+"_"+j);
+		}
+		return output;
+	}
+
+}
