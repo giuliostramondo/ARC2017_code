@@ -20,7 +20,8 @@ Our PRF implementation allow the user to customize the capacity, number of lanes
 To compile the whole project - PRF bitstream and testbench - go in the CPUCode folder and run:
 
 ```Shell
-make RUNRULE=DFE run
+make RUNRULE=DFE distclean
+make RUNRULE=DFE build
 ```
 
 This process could take more than one hour if the bitstream has not been synthesized yet.
@@ -32,7 +33,7 @@ Once the design is compiled the testbench binary will be located in /RunRule/DFE
     -M <num>     Change the vertical size of the input matrix (default 256)
     -p <num>     Change the vertical size of the PRF (default 2)
     -q <num>     Change the horizontal size of the PRF (default 4)
-    -s <num>     Change the schema used by the PRF (default 1 -> ReRo)
+    -s <num>     Change the scheme used by the PRF (default 1 -> ReRo)
                   other schemes 0->ReO, 2->ReCo, 3->RoCo, 4->ReTr
 ```
 
